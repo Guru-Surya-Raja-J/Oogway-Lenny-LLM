@@ -114,15 +114,13 @@ async def process_agent_turn(
             messages = build_ship30_prompt(user_content, retrieved_chunks)
             raw_response = await safe_complete(messages)
             
-            # Save artifact
+            # Instantiate artifact model
             artifact_model = ArtifactModel(
                 session_id=session_id,
                 type="markdown",
                 content=raw_response,
                 sanitized=True
             )
-            db.add(artifact_model)
-            await db.flush()
 
             response_content = (
                 f"I have crafted a Ship 30/30 atomic essay for you based on Lenny's Podcast transcripts.\n\n"
@@ -154,8 +152,6 @@ async def process_agent_turn(
                 content=clean_html,
                 sanitized=True
             )
-            db.add(artifact_model)
-            await db.flush()
 
             response_content = (
                 f"I have generated a visual HTML component based on the transcript insights.\n\n"
@@ -181,12 +177,12 @@ async def process_agent_turn(
             model_provider=active_provider_name
         )
         db.add(assistant_msg)
+        await db.flush()
 
-        # Link the artifact to the message that produced it, so history requests can
-        # hand every message its own artifact instead of only the newest one.
-        # MessageModel assigns its UUID in __init__, so the id exists pre-flush.
+        # Link the artifact to the message that produced it and save artifact
         if artifact_model is not None:
             artifact_model.message_id = assistant_msg.id
+            db.add(artifact_model)
 
         await db.commit()
         await db.refresh(assistant_msg)
